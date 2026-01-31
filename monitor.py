@@ -66,10 +66,10 @@ def main():
             driver.activate_app("ee.mtakso.client")
             
             # --- JITTER LOGIC (Random wait time) ---
-            # base_wait: how often to check (currently set to 6s for testing)
-            # jitter: random noise (currently -1 to 3s)
-            base_wait = 6 
-            jitter = random.randint(-1, 3) 
+            # base_wait: how often to check
+            # jitter: random noise
+            base_wait = 1800 
+            jitter = random.randint(180, 360) 
             total_wait = base_wait + jitter
             
             next_run = datetime.fromtimestamp(time.time() + total_wait).strftime("%H:%M:%S")
