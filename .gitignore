@@ -1,0 +1,30 @@
+# --- Python Standard ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- Virtual Environment ---
+venv/
+env/
+.env
+
+# --- Project Specific Data & Artifacts ---
+data/
+output/
+debug/
+
+# --- Logs & Diagnostics ---
+*.log
+*.xml
+*.png
+
+# --- IDE & System Files ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Appium/Mobile specifics ---
+*.apk
+*.ipa
