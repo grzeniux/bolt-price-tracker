@@ -26,7 +26,7 @@ def main():
     options = UiAutomator2Options().load_capabilities(Config.CAPS)
     url = "http://localhost:4723"
     
-    print("Appium-Surge-Monitor: Night Mode with Jitter")
+    print("Appium-Surge-Monitor")
     print(f"Route: {Config.ADDRESS_START} -> {Config.ADDRESS_END}")
     
     try:
