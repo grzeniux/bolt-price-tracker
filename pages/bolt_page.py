@@ -12,38 +12,42 @@ class BoltPage(BasePage):
 
     def get_price(self):
         print(f"Measurement: {Config.ADDRESS_START} -> {Config.ADDRESS_END}")
+        time.sleep(10)
+        print("Tapping map to dismiss overlays/dimming...")
+        self._wake_up_screen()
+        time.sleep(3) 
         
-        # Extra safety wait after launch
-        time.sleep(2) 
-        self._handle_location_popup()
+        self._handle_popups_aggressively()
         
-        # 1. Open search
         print("Searching for search bar...")
         search_success = False
-        try:
-            # We keep the Polish text inside XPath because the App UI is in Polish
-            search_bar = self.driver.find_element(AppiumBy.XPATH, "//*[contains(@text, 'Dokąd jedziemy') or contains(@text, 'Gdzie jedziemy')]")
-            search_bar.click()
-            search_success = True
-        except: pass
+        
+        for attempt in range(3):
+            try:
+                search_bar = self.driver.find_element(AppiumBy.XPATH, "//*[contains(@text, 'Dokąd jedziemy') or contains(@text, 'Gdzie jedziemy')]")
+                search_bar.click()
+                search_success = True
+                break 
+            except:
+                print(f"Search bar missing (Attempt {attempt+1}/3). Tapping safe zone...")
+                self._wake_up_screen()
+                time.sleep(2)
             
         if not search_success:
             # Fallback tap if element not found
+            print("Fallback: Blind tap on search area...")
             self.driver.tap([(self.w * 0.5, self.h * 0.40)]) 
         
         time.sleep(5)
 
-        # 2. Input route
         self._input_and_click_first_result(Config.ADDRESS_START, is_start=True)
         time.sleep(4)
         self._confirm_on_map()
         self._input_and_click_first_result(Config.ADDRESS_END, is_start=False)
 
-        # 3. Wait for prices
         print("Waiting for prices to load (15s)...")
         time.sleep(15) 
         
-        # 4. Get Promo + Normal Price
         return self._extract_promo_prices()
 
     def _extract_promo_prices(self):
@@ -116,12 +120,43 @@ class BoltPage(BasePage):
             if confirm_btn: confirm_btn[0].click(); time.sleep(4)
         except: pass
 
-    def _handle_location_popup(self):
+    def _handle_popups_aggressively(self):
+        """
+        Checks for various popup texts and closes them.
+        """
+        print("Checking for popups/modals...")
+        target_texts = [
+            "Może później", "Pomiń", "Nie teraz", 
+            "Anuluj", "Odrzuć", "Nie zezwalaj", "Zamknij"
+        ]
+
+        for text in target_texts:
+            try:
+                xpath = f"//*[contains(@text, '{text}')]"
+                elems = self.driver.find_elements(AppiumBy.XPATH, xpath)
+                if elems:
+                    print(f"Closing popup: '{text}'")
+                    elems[0].click()
+                    time.sleep(1)
+                    return
+            except: pass
+        
+        # Check for X icon by content-desc
         try:
-            popups = ['//*[@text="Może później"]', '//*[@text="Pomiń"]']
-            for p in popups:
-                elems = self.driver.find_elements(AppiumBy.XPATH, p)
-                if elems: elems[0].click()
+            close_x = self.driver.find_elements(AppiumBy.XPATH, "//*[@content-desc='Zamknij' or @content-desc='Close']")
+            if close_x:
+                close_x[0].click()
+                time.sleep(1)
+        except: pass
+
+    def _wake_up_screen(self):
+        """
+        Taps a safe area on the map (35% from top) to dismiss dimming.
+        """
+        x = self.w * 0.5
+        y = self.h * 0.35
+        try:
+            self.driver.tap([(x, y)])
         except: pass
 
     def go_back_to_main(self):
