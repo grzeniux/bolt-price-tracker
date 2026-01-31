@@ -12,7 +12,9 @@ class BoltPage(BasePage):
 
     def get_price(self):
         print(f"Measurement: {Config.ADDRESS_START} -> {Config.ADDRESS_END}")
-        time.sleep(5)
+        
+        # Extra safety wait after launch
+        time.sleep(2) 
         self._handle_location_popup()
         
         # 1. Open search
@@ -26,6 +28,7 @@ class BoltPage(BasePage):
         except: pass
             
         if not search_success:
+            # Fallback tap if element not found
             self.driver.tap([(self.w * 0.5, self.h * 0.40)]) 
         
         time.sleep(5)
@@ -40,7 +43,7 @@ class BoltPage(BasePage):
         print("Waiting for prices to load (15s)...")
         time.sleep(15) 
         
-        # 4. NEW METHOD: Get Promo + Normal Price
+        # 4. Get Promo + Normal Price
         return self._extract_promo_prices()
 
     def _extract_promo_prices(self):
