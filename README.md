@@ -2,6 +2,7 @@
 
 An automated system for monitoring and analyzing dynamic pricing (Surge Pricing) and discounts in the Bolt application. The project uses mobile process automation (Appium) to collect price data for all ride categories on a selected route in real-time.
 
+![Bolt Surge Pricing Analysis Chart](output/chart.png)
 ---
 
 ## Project Architecture
