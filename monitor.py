@@ -70,7 +70,7 @@ def main():
             # --- STEP 4: WAIT (JITTER) ---
             # base_wait: 30 minutes (1800s)
             # jitter: 3 to 6 minutes (180s - 360s)
-            base_wait = 1800 
+            base_wait = 900 
             jitter = random.randint(180, 360) 
             total_wait = base_wait + jitter
         

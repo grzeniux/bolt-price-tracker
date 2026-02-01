@@ -3,88 +3,141 @@ import json
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import seaborn as sns
+from matplotlib.ticker import MultipleLocator
 from config import Config
 
 def parse_price(price_str):
-    """Czyści tekst ceny do float."""
     return float(price_str.replace('zł', '').replace(',', '.').replace('\xa0', '').strip())
 
-def generate_promo_chart():
+def add_price_labels(ax, df):
+    for cat in df['Category'].unique():
+        cat_data = df[df['Category'] == cat].dropna(subset=['Price'])
+        
+        if cat_data.empty: continue
+
+        max_point = cat_data.loc[cat_data['Price'].idxmax()]
+        min_point = cat_data.loc[cat_data['Price'].idxmin()]
+        
+        points_to_label = [max_point]
+        if min_point['Time'] != max_point['Time']:
+            points_to_label.append(min_point)
+
+        for point in points_to_label:
+            ax.annotate(
+                f"{point['Price']:.2f} zł",
+                xy=(point['Time'], point['Price']),
+                xytext=(0, 10),
+                textcoords='offset points',
+                ha='center',
+                fontsize=9,
+                fontweight='bold',
+                bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="#cccccc", alpha=0.8)
+            )
+
+def generate_comparison_chart():
     try:
         df = pd.read_csv(Config.CSV_FILE)
-    except:
-        print("❌ Brak pliku CSV.")
+    except Exception as e:
+        print(f"CSV file not found or empty: {e}")
         return
 
-    df['data_godzina'] = pd.to_datetime(df['data_godzina'])
+    df['date_hour'] = pd.to_datetime(df['date_hour'])
     plot_data = []
+
+    TARGET_CATEGORIES = ["Bolt", "Comfort", "Green"]
+
+    print(f"Processing data for: {TARGET_CATEGORIES}...")
 
     for _, row in df.iterrows():
         try:
-            options = json.loads(row['wszystkie_opcje'])
+            options = json.loads(row['options'])
+            
             for cat, val in options.items():
-                
-                # Sprawdzamy czy jest promocja (separator |)
+                if cat not in TARGET_CATEGORIES:
+                    continue
+
                 if "|" in val:
                     parts = val.split("|")
-                    price_now = parse_price(parts[0])
-                    price_old = parse_price(parts[1])
-                    is_promo = True
+                    price_final = parse_price(parts[0])
                 else:
-                    price_now = parse_price(val)
-                    price_old = price_now # Brak starej ceny
-                    is_promo = False
+                    price_final = parse_price(val)
 
                 plot_data.append({
-                    'Czas': row['data_godzina'],
-                    'Kategoria': cat,
-                    'Cena': price_now,
-                    'StaraCena': price_old if is_promo else None,
-                    'Promocja': is_promo
+                    'Time': row['date_hour'],
+                    'Category': cat,
+                    'Price': price_final
                 })
         except:
             continue
 
     if not plot_data:
-        print("⚠️ Pusto.")
+        print("No data found.")
         return
 
-    plot_df = pd.DataFrame(plot_data)
+    raw_df = pd.DataFrame(plot_data)
+    raw_df = raw_df.set_index('Time')
+    
+    resampled_dfs = []
+    for cat in TARGET_CATEGORIES:
+        cat_df = raw_df[raw_df['Category'] == cat]
+        if cat_df.empty: continue
+        
+        cat_resampled = cat_df.resample('30min').mean(numeric_only=True)
+        cat_resampled['Category'] = cat
+        resampled_dfs.append(cat_resampled)
+    
+    plot_df = pd.concat(resampled_dfs).reset_index()
 
-    plt.figure(figsize=(16, 9))
+    plt.figure(figsize=(14, 8))
     sns.set_theme(style="whitegrid")
+    
+    custom_palette = {
+        "Bolt": "#2563EB",
+        "Comfort": "#F59E0B",
+        "Green": "#10B981"
+    }
+    
+    custom_dashes = {
+        "Bolt": "",        
+        "Comfort": "",      
+        "Green": (4, 2)     
+    }
 
-    # 1. Rysujemy linie (Ceny do zapłaty)
-    sns.lineplot(
-        data=plot_df, x='Czas', y='Cena', 
-        hue='Kategoria', style='Kategoria',
-        markers=True, dashes=False, linewidth=2, markersize=8
+    ax = sns.lineplot(
+        data=plot_df, 
+        x='Time', 
+        y='Price', 
+        hue='Category', 
+        style='Category',       
+        dashes=custom_dashes,   
+        palette=custom_palette,
+        linewidth=3,            
+        markers=True,
+        markersize=8
     )
 
-    # 2. Dodajemy punkty "Starej ceny" (tylko tam gdzie była promocja)
-    promo_points = plot_df[plot_df['Promocja'] == True]
-    if not promo_points.empty:
-        sns.scatterplot(
-            data=promo_points, x='Czas', y='StaraCena', 
-            color='red', marker='x', s=100, label='Cena bez zniżki', zorder=10
-        )
-        # Rysujemy cieniutką linię łączącą Starą i Nową cenę
-        for _, point in promo_points.iterrows():
-            plt.plot([point['Czas'], point['Czas']], [point['Cena'], point['StaraCena']], 
-                     color='red', linestyle=':', alpha=0.5)
+    add_price_labels(ax, plot_df)
 
-    plt.title('Monitoring Bolt: Ceny Realne vs Promocje', fontsize=18)
-    plt.ylabel('Cena (PLN)')
-    plt.xlabel('Godzina')
+    plt.title('Real-Time Price Monitor', fontsize=18, fontweight='bold')
+    plt.ylabel('Payable Price (PLN)', fontsize=14)
+    plt.xlabel('Time', fontsize=14)
+
+    locator = mdates.HourLocator(interval=2) 
+    ax.xaxis.set_major_locator(locator)
     
-    ax = plt.gca()
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+    formatter = mdates.ConciseDateFormatter(locator)
+    ax.xaxis.set_major_formatter(formatter)
     
-    plt.legend(bbox_to_anchor=(1.01, 1), loc='upper left')
+    plt.setp(ax.get_xticklabels(), fontsize=11)
+
+    ax.yaxis.set_major_locator(MultipleLocator(2))
+    plt.setp(ax.get_yticklabels(), fontsize=11)
+
+    plt.legend(bbox_to_anchor=(0.02, 0.98), loc='upper left', title="Category", frameon=True)
+    
     plt.tight_layout()
     plt.savefig(Config.CHART_FILE, dpi=300)
-    print(f"✅ Wygenerowano: {Config.CHART_FILE}")    
-    plt.show()
+    print(f"Chart generated successfully: {Config.CHART_FILE}")
 
 if __name__ == "__main__":
-    generate_promo_chart()
+    generate_comparison_chart()
