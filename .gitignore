@@ -17,7 +17,6 @@ debug/
 # --- Logs & Diagnostics ---
 *.log
 *.xml
-*.png
 
 # --- IDE & System Files ---
 .vscode/
