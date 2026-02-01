@@ -7,7 +7,6 @@ class BasePage:
         self.driver = driver
 
     def wait_for(self, locator, timeout=45):
-        """Bardzo cierpliwe czekanie na element - ważne dla wolnych Xiaomi."""
         return WebDriverWait(self.driver, timeout).until(
             EC.presence_of_element_located(locator)
         )
